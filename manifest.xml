@@ -1,0 +1,14 @@
+<package>
+    <description brief="library from KIT to compute dense stereo images">
+	Libelas (Library for Efficient Large-scale Stereo Matching) is a
+	cross-platfrom (Linux, Windows) C++ library with MATLAB wrappers for
+	computing disparity maps from rectified graylevel stereo pairs. It is robust
+	against moderate changes in illumination and well suited for robotics
+	applications with high resolution images. Computing the left and right
+	disparity map of a one Megapixel image requires less than one second on a
+	single i7 CPU core.
+    </description>
+    <author>Andreas Geiger/geiger@kit.edu</author>
+    <license>GPL</license>
+    <url>http://www.rainsoft.de/software/libelas.html</url>
+</package>
