@@ -944,7 +944,7 @@ void Elas::computeDisparity(vector<support_pt> p_support,vector<triangle> tri,in
     
   }
 
-  free(P);
+  delete[] P;
 }
 
 void Elas::leftRightConsistencyCheck(float* D1,float* D2) {
