@@ -161,9 +161,6 @@ public:
   //               otherwise width/2 x height/2 (rounded towards zero)
   void process (uint8_t* I1,uint8_t* I2,float* D1,float* D2,const int32_t* dims);
   
-  // utility function for testing CUDA developments
-  void supportPointImage (uint8_t* I1,uint8_t* I2,const int32_t* dims,int16_t* &D_can,int32_t &D_can_width,int32_t &D_can_height,int32_t &D_can_stepsize);
-  
 private:
   
   struct support_pt {
@@ -194,7 +191,6 @@ private:
                                      int32_t redun_max_dist, int32_t redun_threshold, bool vertical);
   void addCornerSupportPoints (std::vector<support_pt> &p_support);
   inline int16_t computeMatchingDisparity (const int32_t &u,const int32_t &v,uint8_t* I1_desc,uint8_t* I2_desc,const bool &right_image);
-  void computeCandidateDisparityImage(uint8_t* I1_desc,uint8_t* I2_desc,int16_t* D_can,int32_t D_can_width,int32_t D_can_height,int32_t D_can_stepsize);
   std::vector<support_pt> computeSupportMatches (uint8_t* I1_desc,uint8_t* I2_desc);
 
   // triangulation & grid

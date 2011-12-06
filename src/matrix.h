@@ -1,3 +1,24 @@
+/*
+Copyright 2011. All rights reserved.
+Institute of Measurement and Control Systems
+Karlsruhe Institute of Technology, Germany
+
+This file is part of libviso2.
+Authors: Andreas Geiger
+
+libviso2 is free software; you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or any later version.
+
+libviso2 is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+libviso2; if not, write to the Free Software Foundation, Inc., 51 Franklin
+Street, Fifth Floor, Boston, MA 02110-1301, USA 
+*/
+
 #ifndef MATRIX_H
 #define MATRIX_H
 
@@ -6,10 +27,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
-/*** added ↓ ***/
-#include <limits>
 
-// define fixed-width datatypes for Visual Studio projects
 #ifndef _MSC_VER
   #include <stdint.h>
 #else
@@ -42,38 +60,22 @@ public:
   // assignment operator, copies contents of M
   Matrix& operator= (const Matrix &M);
 
-  Matrix reshape(int32_t icount, int32_t jcount);
-
   // copies submatrix of M into array 'val', default values copy whole row/column/matrix
   void getData(FLOAT* val_,int32_t i1=0,int32_t j1=0,int32_t i2=-1,int32_t j2=-1);
 
   // set or get submatrices of current matrix
   Matrix getMat(int32_t i1,int32_t j1,int32_t i2=-1,int32_t j2=-1);
-  /*** added ↓ ***/
-  Matrix getMat(const int32_t i1,const int32_t j1,const int32_t i2,const int32_t j2, const int32_t istep, const int32_t jstep);
-  /*** changed ↓ ***/
-  void setMat(const Matrix &M,const int32_t i1,const int32_t j1);
-  /*** added ↓ ***/
-  void setMat(const Matrix &M,const int32_t i1,const int32_t j1,const int32_t istep, const int32_t jstep);
+  void   setMat(const Matrix &M,const int32_t i,const int32_t j);
 
   // set sub-matrix to scalar (default 0), -1 as end replaces whole row/column/matrix
   void setVal(FLOAT s,int32_t i1=0,int32_t j1=0,int32_t i2=-1,int32_t j2=-1);
 
-  /*** changed ↓ ***/ // set (part of) diagonal to scalar, -1 as end replaces whole diagonal
-  Matrix& setDiag(FLOAT s,int32_t i1=0,int32_t i2=-1);
+  // set (part of) diagonal to scalar, -1 as end replaces whole diagonal
+  void setDiag(FLOAT s,int32_t i1=0,int32_t i2=-1);
 
   // clear matrix
   void zero();
-
-   /*** added ↓ ***/ // sum columns of matrix and return a row matrix
-  Matrix sumColumns();
-   /*** added ↓ ***/ // sum columns of matrix and return a column matrix (at no additional cost)
-  Matrix sumColumnsT();
-   /*** added ↓ ***/ // sum rows of matrix and return a column matrix
-  Matrix sumRows();
-   /*** added ↓ ***/ // sum rows of matrix and return a row matrix (at no additional cost)
-  Matrix sumRowsT();
-
+  
   // extract columns with given index
   Matrix extractCols (std::vector<int> idx);
 
@@ -101,10 +103,6 @@ public:
   Matrix  operator/ (const FLOAT &s);  // divide by scalar
   Matrix  operator- ();                // negative matrix
   Matrix  operator~ ();                // transpose
-  /*** added ↓ ***/
-  Matrix arrayPow(const FLOAT &exp);   // pow each matrix element with exp
-  /*** added ↓ ***/
-  Matrix arrayPow(const Matrix &P);    // pow each matrix element with the corresponding of P Matrix
   FLOAT   l2norm ();                   // euclidean norm (vectors) / frobenius norm (matrices)
   FLOAT   mean ();                     // mean of all elements in matrix
 

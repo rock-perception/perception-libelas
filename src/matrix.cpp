@@ -1,3 +1,24 @@
+/*
+Copyright 2011. All rights reserved.
+Institute of Measurement and Control Systems
+Karlsruhe Institute of Technology, Germany
+
+This file is part of libviso2.
+Authors: Andreas Geiger
+
+libviso2 is free software; you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or any later version.
+
+libviso2 is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+libviso2; if not, write to the Free Software Foundation, Inc., 51 Franklin
+Street, Fifth Floor, Boston, MA 02110-1301, USA 
+*/
+
 #include "matrix.h"
 #include <math.h>
 
@@ -54,24 +75,6 @@ Matrix& Matrix::operator= (const Matrix &M) {
   return *this;
 }
 
-/*** added ↓ ***/
-Matrix Matrix::reshape(int32_t icount, int32_t jcount) {
-  if ((m == icount) && (n ==jcount))
-  {
-    return *this;
-  }
-  if ((n*m != icount*jcount))
-  {
-    std::cerr << "ERROR:: unable to reshape matrix of size (" << m << "x" << n << ") to (" << icount << "x" << jcount << ")";
-    exit(1);
-  }
-  Matrix T(icount, jcount);
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; j++)
-      T.val[(j*m+i) % icount][(j*m+i)/icount] = val[i][j];
-  return T;
-}
-
 void Matrix::getData(FLOAT* val_,int32_t i1,int32_t j1,int32_t i2,int32_t j2) {
   if (i2==-1) i2 = m-1;
   if (j2==-1) j2 = n-1;
@@ -97,27 +100,6 @@ Matrix Matrix::getMat(int32_t i1,int32_t j1,int32_t i2,int32_t j2) {
   return M;
 }
 
-/*** added ↓ ***/
-Matrix Matrix::getMat(const int32_t i1,const int32_t j1,const int32_t i2,const int32_t j2, const int32_t istep, const int32_t jstep) {
-  if (i1<0 || i2>=m || j1<0 || j2>=n || i2<i1 || j2<j1) {
-    cerr << "ERROR: Cannot get submatrix [" << i1 << ".." << i2 <<
-            "] x [" << j1 << ".." << j2 << "]" <<
-            " of a (" << m << "x" << n << ") matrix." << endl;
-    exit(1);
-  }
-  int32_t imax = (i2 - i1)/istep + 1;
-  if (m<imax) imax = m;
-
-  int32_t jmax = (j2 - j1)/jstep + 1;
-  if (n<jmax) jmax = n;
-
-  Matrix M(imax,jmax);
-  for (int32_t i=0; i<imax; i++)
-    for (int32_t j=0; j<jmax; j++)
-      M.val[i][j] = val[i1+i*istep][j1+j*jstep];
-  return M;
-}
-
 void Matrix::setMat(const Matrix &M,const int32_t i1,const int32_t j1) {
   if (i1<0 || j1<0 || i1+M.m>m || j1+M.n>n) {
     cerr << "ERROR: Cannot set submatrix [" << i1 << ".." << i1+M.m-1 <<
@@ -128,26 +110,6 @@ void Matrix::setMat(const Matrix &M,const int32_t i1,const int32_t j1) {
   for (int32_t i=0; i<M.m; i++)
     for (int32_t j=0; j<M.n; j++)
       val[i1+i][j1+j] = M.val[i][j];
-}
-
-/*** added ↓ ***/
-void Matrix::setMat(const Matrix &M,const int32_t i1, const int32_t j1, const int32_t istep, const int32_t jstep) {
-  if (i1<0 || j1<0/* || i1+M.m>m || j1+M.n>n*/) {
-    cerr << "ERROR: Cannot set submatrix [" << i1 << ".." << i1+M.m-1 <<
-            "] x [" << j1 << ".." << j1+M.n-1 << "]" <<
-            " of a (" << m << "x" << n << ") matrix." << endl;
-    exit(1);
-  }
-
-  int32_t imax = (m-1 - i1)/istep + 1;
-  if (M.m<imax) imax = M.m;
-
-  int32_t jmax = (n-1 - j1)/jstep + 1;
-  if (M.n<jmax) jmax = M.n;
-
-  for (int32_t i=0; i<imax; i++)
-    for (int32_t j=0; j<jmax; j++)
-      val[i1+i*jstep][j1+j*jstep] = M.val[i][j];
 }
 
 void Matrix::setVal(FLOAT s,int32_t i1,int32_t j1,int32_t i2,int32_t j2) {
@@ -162,72 +124,14 @@ void Matrix::setVal(FLOAT s,int32_t i1,int32_t j1,int32_t i2,int32_t j2) {
       val[i][j] = s;
 }
 
-/*** changed ↓ ***/ // added return val
-Matrix& Matrix::setDiag(FLOAT s,int32_t i1,int32_t i2) {
+void Matrix::setDiag(FLOAT s,int32_t i1,int32_t i2) {
   if (i2==-1) i2 = min(m-1,n-1);
   for (int32_t i=i1; i<=i2; i++)
     val[i][i] = s;
-  return (*this);
 }
 
 void Matrix::zero() {
   setVal(0);
-}
-
-/*** added ↓ ***/
-Matrix Matrix::sumColumns() {
-  if (m==0 || n==0)
-  {
-    std::cerr << "ERROR: supplied matrix is unintialized" << std::endl;
-    exit(1);
-  }
-  Matrix C(1,n);
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; ++j)
-      C.val[0][j] += val[i][j];
-  return C;
-}
-
-/*** added ↓ ***/
-Matrix Matrix::sumColumnsT() {
-  if (m==0 || n==0)
-  {
-    std::cerr << "ERROR: supplied matrix is unintialized" << std::endl;
-    exit(1);
-  }
-  Matrix C(n,1);
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; ++j)
-      C.val[j][0] += val[i][j];
-  return C;
-}
-
-/*** added ↓ ***/
-Matrix Matrix::sumRows() {
-  if (m==0 || n==0)
-  {
-    std::cerr << "ERROR: supplied matrix is unintialized" << std::endl;
-    exit(1);
-  }
-  Matrix C(m,1);
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; ++j)
-      C.val[i][0] += val[i][j];
-  return C;
-}
-
-/*** added ↓ ***/
-Matrix Matrix::sumRowsT() {
-  if (m==0 || n==0)
-  {
-    std::cerr << "ERROR: supplied matrix is unintialized" << std::endl;
-    exit(1);
-  }
-  Matrix C(1,m);
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; ++j)
-      C.val[0][i] += val[i][j];
-  return C;
 }
 
 Matrix Matrix::extractCols (vector<int> idx) {
@@ -437,34 +341,6 @@ Matrix Matrix::operator~ () {
   for (int32_t i=0; i<m; i++)
     for (int32_t j=0; j<n; j++)
       C.val[j][i] = val[i][j];
-  return C;
-}
-
-/*** added ↓ ***/
-Matrix Matrix::arrayPow (const FLOAT &exp) {
-  Matrix C(m,n);
-  if (::abs(exp)<=::numeric_limits<FLOAT>::epsilon())
-  {
-    C.setVal(1.0);
-    return C;
-  }
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; j++)
-      C.val[i][j] = ::pow(val[i][j], exp);
-  return C;
-}
-
-/*** added ↓ ***/
-Matrix Matrix::arrayPow (const Matrix &P) {
-  if ((P.m != m) || (P.n != n))
-  {
-    std::cerr << "ERROR: unable to arraypow matrix of different sizes: (" << m << "x" << n << ") vs. (" << P.m << "x" << P.n << ").";
-    exit(1);
-  }
-  Matrix C(m,n);
-  for(int32_t i=0; i<m; i++)
-    for(int32_t j=0; j<n; j++)
-      C.val[i][j] = ::pow(val[i][j], P.val[i][j]);
   return C;
 }
 
