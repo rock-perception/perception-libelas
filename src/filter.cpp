@@ -180,32 +180,44 @@ namespace filter {
       const int16_t* i2 = in+2;
       uint8_t* result   = out + 1;
       const int16_t* const end_input = in + w*h;
+      const size_t blocked_loops = (w*h-2)/16;
       __m128i offs = _mm_set1_epi16( 128 );
-      for( ; i2 < end_input; i0 += 1, i1 += 8, i2 += 8, result += 16 ) {
+      for( size_t i=0; i != blocked_loops; i++ ) {
         __m128i result_register_lo;
         __m128i result_register_hi;
-        for( int i=0; i<2; i++ ) {
-          __m128i* result_register;
-          if( i==0 ) result_register = &result_register_lo;
-          else       result_register = &result_register_hi;
-          __m128i i0_register = *i0;
-          __m128i i1_register = _mm_loadu_si128( (__m128i*)( i1 ) );
-          __m128i i2_register = _mm_loadu_si128( (__m128i*)( i2 ) );
-          *result_register = _mm_setzero_si128();
-          *result_register = _mm_add_epi16( i0_register,   *result_register );
-          i1_register      = _mm_add_epi16( i1_register, i1_register  );
-          *result_register = _mm_add_epi16( i1_register,   *result_register );
-          *result_register = _mm_add_epi16( i2_register,   *result_register );
-          *result_register = _mm_srai_epi16( *result_register, 2 );
-          *result_register = _mm_add_epi16( *result_register, offs ); 
-          if( i==0 ) {
-            i0 += 1;
-            i1 += 8;
-            i2 += 8;
-          }
-        }
+        __m128i i1_register;
+        __m128i i2_register;
+        
+        i1_register        = _mm_loadu_si128( (__m128i*)( i1 ) );
+        i2_register        = _mm_loadu_si128( (__m128i*)( i2 ) );
+        result_register_lo = *i0;
+        i1_register        = _mm_add_epi16( i1_register, i1_register );
+        result_register_lo = _mm_add_epi16( i1_register, result_register_lo );
+        result_register_lo = _mm_add_epi16( i2_register, result_register_lo );
+        result_register_lo = _mm_srai_epi16( result_register_lo, 2 );
+        result_register_lo = _mm_add_epi16( result_register_lo, offs );
+
+        i0++;
+        i1+=8;
+        i2+=8;
+
+        i1_register        = _mm_loadu_si128( (__m128i*)( i1 ) );
+        i2_register        = _mm_loadu_si128( (__m128i*)( i2 ) );
+        result_register_hi = *i0;
+        i1_register        = _mm_add_epi16( i1_register, i1_register );
+        result_register_hi = _mm_add_epi16( i1_register, result_register_hi );
+        result_register_hi = _mm_add_epi16( i2_register, result_register_hi );
+        result_register_hi = _mm_srai_epi16( result_register_hi, 2 );
+        result_register_hi = _mm_add_epi16( result_register_hi, offs );
+
+        i0++;
+        i1+=8;
+        i2+=8;
+
         pack_16bit_to_8bit_saturate( result_register_lo, result_register_hi, result_register_lo );
         _mm_storeu_si128( ((__m128i*)( result )), result_register_lo );
+      
+        result += 16;
       }
     }
     
@@ -218,28 +230,39 @@ namespace filter {
       const int16_t* 	i2 = in+2;
       uint8_t* result    = out + 1;
       const int16_t* const end_input = in + w*h;
+      const size_t blocked_loops = (w*h-2)/16;
       __m128i offs = _mm_set1_epi16( 128 );
-      for( ; i2 < end_input; i0 += 1, i2 += 8, result += 16 ) {
+      for( size_t i=0; i != blocked_loops; i++ ) {
         __m128i result_register_lo;
         __m128i result_register_hi;
-        for( int i=0; i<2; i++ ) {
-          __m128i* result_register;
-          if( i==0 ) result_register = &result_register_lo;
-          else       result_register = &result_register_hi;
-          __m128i i0_register = *i0;
-          __m128i i2_register = _mm_loadu_si128( (__m128i*)( i2 ) );
-          *result_register    = _mm_setzero_si128();
-          *result_register    = _mm_add_epi16( i0_register,   *result_register );
-          *result_register    = _mm_sub_epi16( *result_register, i2_register );
-          *result_register    = _mm_srai_epi16( *result_register, 2 );
-          *result_register    = _mm_add_epi16( *result_register, offs );
-          if( i==0 ) {
-            i0 += 1;
-            i2 += 8;
-          }
-        }
+        __m128i i2_register;
+
+        i2_register = _mm_loadu_si128( (__m128i*)( i2 ) );
+        result_register_lo  = *i0;
+        result_register_lo  = _mm_sub_epi16( result_register_lo, i2_register );
+        result_register_lo  = _mm_srai_epi16( result_register_lo, 2 );
+        result_register_lo  = _mm_add_epi16( result_register_lo, offs );
+ 
+        i0 += 1;
+        i2 += 8;
+        
+        i2_register = _mm_loadu_si128( (__m128i*)( i2 ) );
+        result_register_hi  = *i0;
+        result_register_hi  = _mm_sub_epi16( result_register_hi, i2_register );
+        result_register_hi  = _mm_srai_epi16( result_register_hi, 2 );
+        result_register_hi  = _mm_add_epi16( result_register_hi, offs );
+
+        i0 += 1;
+        i2 += 8;
+        
         pack_16bit_to_8bit_saturate( result_register_lo, result_register_hi, result_register_lo );
         _mm_storeu_si128( ((__m128i*)( result )), result_register_lo );
+
+        result += 16;
+      }
+
+      for( ; i2 < end_input; i2++, result++) {
+        *result = ((*(i2-2) - *i2)>>2)+128;
       }
     }
     
