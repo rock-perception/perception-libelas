@@ -38,6 +38,8 @@ void Elas::process (uint8_t* I1_,uint8_t* I2_,float* D1,float* D2,const int32_t*
   // copy images to byte aligned memory
   I1 = (uint8_t*)_mm_malloc(bpl*height*sizeof(uint8_t),16);
   I2 = (uint8_t*)_mm_malloc(bpl*height*sizeof(uint8_t),16);
+  memset (I1,0,bpl*height*sizeof(uint8_t));
+  memset (I2,0,bpl*height*sizeof(uint8_t));
   if (bpl==dims[2]) {
     memcpy(I1,I1_,bpl*height*sizeof(uint8_t));
     memcpy(I2,I2_,bpl*height*sizeof(uint8_t));
@@ -52,8 +54,8 @@ void Elas::process (uint8_t* I1_,uint8_t* I2_,float* D1,float* D2,const int32_t*
   int32_t grid_width   = (int32_t)ceil((float)width/(float)param.grid_size);
   int32_t grid_height  = (int32_t)ceil((float)height/(float)param.grid_size);
   int32_t grid_dims[3] = {param.disp_max+2,grid_width,grid_height};
-  int32_t* disparity_grid_1 = (int32_t*)malloc((param.disp_max+2)*grid_height*grid_width*sizeof(int32_t));
-  int32_t* disparity_grid_2 = (int32_t*)malloc((param.disp_max+2)*grid_height*grid_width*sizeof(int32_t));
+  int32_t* disparity_grid_1 = (int32_t*)calloc((param.disp_max+2)*grid_height*grid_width,sizeof(int32_t));
+  int32_t* disparity_grid_2 = (int32_t*)calloc((param.disp_max+2)*grid_height*grid_width,sizeof(int32_t));
 
 #ifdef PROFILE
   timer.start("Descriptor");  
@@ -672,7 +674,7 @@ inline void Elas::findMatch(int32_t &u,int32_t &v,float &plane_a,float &plane_b,
   
   // get image width and height
   const int32_t disp_num    = grid_dims[0]-1;
-  const int32_t window_size = 3;
+  const int32_t window_size = 2;
 
   // address of disparity we want to compute
   uint32_t d_addr;
@@ -680,7 +682,7 @@ inline void Elas::findMatch(int32_t &u,int32_t &v,float &plane_a,float &plane_b,
   else                   d_addr = getAddressOffsetImage(u,v,width);
   
   // check if u is ok
-  if (u<window_size || u>=width-2)
+  if (u<window_size || u>=width-window_size)
     return;
 
   // compute line start address
@@ -729,14 +731,14 @@ inline void Elas::findMatch(int32_t &u,int32_t &v,float &plane_a,float &plane_b,
       d_curr = d_grid[i];
       if (d_curr<d_plane_min || d_curr>d_plane_max) {
         u_warp = u-d_curr;
-        if (u_warp<window_size || u_warp>width-window_size-1)
+        if (u_warp<window_size || u_warp>=width-window_size)
           continue;
         updatePosteriorMinimum((__m128i*)(I2_line_addr+16*u_warp),d_curr,xmm1,xmm2,val,min_val,min_d);
       }
     }
     for (d_curr=d_plane_min; d_curr<=d_plane_max; d_curr++) {
       u_warp = u-d_curr;
-      if (u_warp<window_size || u_warp>width-window_size-1)
+      if (u_warp<window_size || u_warp>=width-window_size)
         continue;
       updatePosteriorMinimum((__m128i*)(I2_line_addr+16*u_warp),d_curr,valid?*(P+abs(d_curr-d_plane)):0,xmm1,xmm2,val,min_val,min_d);
     }
@@ -747,14 +749,14 @@ inline void Elas::findMatch(int32_t &u,int32_t &v,float &plane_a,float &plane_b,
       d_curr = d_grid[i];
       if (d_curr<d_plane_min || d_curr>d_plane_max) {
         u_warp = u+d_curr;
-        if (u_warp<window_size || u_warp>width-window_size-1)
+        if (u_warp<window_size || u_warp>=width-window_size)
           continue;
         updatePosteriorMinimum((__m128i*)(I2_line_addr+16*u_warp),d_curr,xmm1,xmm2,val,min_val,min_d);
       }
     }
     for (d_curr=d_plane_min; d_curr<=d_plane_max; d_curr++) {
       u_warp = u+d_curr;
-      if (u_warp<window_size || u_warp>width-window_size-1)
+      if (u_warp<window_size || u_warp>=width-window_size)
         continue;
       updatePosteriorMinimum((__m128i*)(I2_line_addr+16*u_warp),d_curr,valid?*(P+abs(d_curr-d_plane)):0,xmm1,xmm2,val,min_val,min_d);
     }
@@ -1250,23 +1252,27 @@ void Elas::adaptiveMean (float* D) {
   float* D_tmp  = (float*)malloc(D_width*D_height*sizeof(float));
   memcpy(D_copy,D,D_width*D_height*sizeof(float));
   
-  // zero disparity map
+  // zero input disparity maps to -10 (this makes the bilateral
+  // weights of all valid disparities to 0 in this region)
   for (int32_t i=0; i<D_width*D_height; i++) {
-    *(D_tmp+i) = -10;
-    *(D+i)     = -10;
+    if (*(D+i)<0) {
+      *(D_copy+i) = -10;
+      *(D_tmp+i)  = -10;
+    }
   }
   
   __m128 xconst0 = _mm_set1_ps(0);
   __m128 xconst4 = _mm_set1_ps(4);
   __m128 xval,xweight1,xweight2,xfactor1,xfactor2;
   
-  float *val    = (float*)_mm_malloc(8*sizeof(float),16);
-  float *weight = (float*)_mm_malloc(4*sizeof(float),16);
-  float *factor = (float*)_mm_malloc(4*sizeof(float),16);
+  int32_t *val_int = (int32_t *)_mm_malloc(8*sizeof(int32_t),16);
+  float   *weight  = (float*)_mm_malloc(4*sizeof(float),16);
+  float   *factor  = (float*)_mm_malloc(4*sizeof(float),16);
   
   // set absolute mask
-  val[0] = 0x7FFFFFFF; val[1] = 0x7FFFFFFF;
-  val[2] = 0x7FFFFFFF; val[3] = 0x7FFFFFFF;
+  val_int[0] = 0x7FFFFFFF; val_int[1] = 0x7FFFFFFF;
+  val_int[2] = 0x7FFFFFFF; val_int[3] = 0x7FFFFFFF;
+  float *val = (float *)val_int;
   __m128 xabsmask = _mm_load_ps(val);
   
   // when doing subsampling: 4 pixel bilateral filter width
@@ -1283,8 +1289,8 @@ void Elas::adaptiveMean (float* D) {
       for (int32_t u=3; u<D_width; u++) {
 
         // set
-        float val_curr = *(D_copy+v*D_width+u);
-        val[u%4] = val_curr;
+        float val_curr = *(D_copy+v*D_width+(u-1));
+        val[u%4] = *(D_copy+v*D_width+u);
 
         xval     = _mm_load_ps(val);      
         xweight1 = _mm_sub_ps(xval,_mm_set1_ps(val_curr));
@@ -1298,8 +1304,11 @@ void Elas::adaptiveMean (float* D) {
 
         float weight_sum = weight[0]+weight[1]+weight[2]+weight[3];
         float factor_sum = factor[0]+factor[1]+factor[2]+factor[3];
-        if (weight_sum>0)
-          *(D_tmp+v*D_width+u) = factor_sum/weight_sum;
+        
+        if (weight_sum>0) {
+          float d = factor_sum/weight_sum;
+          if (d>=0) *(D_tmp+v*D_width+(u-1)) = d;
+        }
       }
     }
 
@@ -1314,8 +1323,8 @@ void Elas::adaptiveMean (float* D) {
       for (int32_t v=3; v<D_height; v++) {
 
         // set
-        float val_curr = *(D_tmp+v*D_width+u);
-        val[v%4] = val_curr;
+        float val_curr = *(D_tmp+(v-1)*D_width+u);
+        val[v%4] = *(D_tmp+v*D_width+u);
 
         xval     = _mm_load_ps(val);      
         xweight1 = _mm_sub_ps(xval,_mm_set1_ps(val_curr));
@@ -1329,14 +1338,18 @@ void Elas::adaptiveMean (float* D) {
 
         float weight_sum = weight[0]+weight[1]+weight[2]+weight[3];
         float factor_sum = factor[0]+factor[1]+factor[2]+factor[3];
-        if (weight_sum>0)
-          *(D+v*D_width+u) = factor_sum/weight_sum;
+        
+        if (weight_sum>0) {
+          float d = factor_sum/weight_sum;
+          if (d>=0) *(D+(v-1)*D_width+u) = d;
+        }
       }
     }
     
   // full resolution: 8 pixel bilateral filter width
   } else {
     
+  
     // horizontal filter
     for (int32_t v=3; v<D_height-3; v++) {
 
@@ -1348,8 +1361,8 @@ void Elas::adaptiveMean (float* D) {
       for (int32_t u=7; u<D_width; u++) {
 
         // set
-        float val_curr = *(D_copy+v*D_width+u);
-        val[u%8] = val_curr;
+        float val_curr = *(D_copy+v*D_width+(u-3));
+        val[u%8] = *(D_copy+v*D_width+u);
 
         xval     = _mm_load_ps(val);      
         xweight1 = _mm_sub_ps(xval,_mm_set1_ps(val_curr));
@@ -1373,11 +1386,14 @@ void Elas::adaptiveMean (float* D) {
 
         float weight_sum = weight[0]+weight[1]+weight[2]+weight[3];
         float factor_sum = factor[0]+factor[1]+factor[2]+factor[3];
-        if (weight_sum>0)
-          *(D_tmp+v*D_width+u) = factor_sum/weight_sum;
+        
+        if (weight_sum>0) {
+          float d = factor_sum/weight_sum;
+          if (d>=0) *(D_tmp+v*D_width+(u-3)) = d;
+        }
       }
     }
-
+  
     // vertical filter
     for (int32_t u=3; u<D_width-3; u++) {
 
@@ -1389,8 +1405,8 @@ void Elas::adaptiveMean (float* D) {
       for (int32_t v=7; v<D_height; v++) {
 
         // set
-        float val_curr = *(D_tmp+v*D_width+u);
-        val[v%8] = val_curr;
+        float val_curr = *(D_tmp+(v-3)*D_width+u);
+        val[v%8] = *(D_tmp+v*D_width+u);
 
         xval     = _mm_load_ps(val);      
         xweight1 = _mm_sub_ps(xval,_mm_set1_ps(val_curr));
@@ -1414,8 +1430,11 @@ void Elas::adaptiveMean (float* D) {
 
         float weight_sum = weight[0]+weight[1]+weight[2]+weight[3];
         float factor_sum = factor[0]+factor[1]+factor[2]+factor[3];
-        if (weight_sum>0)
-          *(D+v*D_width+u) = factor_sum/weight_sum;
+        
+        if (weight_sum>0) {
+          float d = factor_sum/weight_sum;
+          if (d>=0) *(D+(v-3)*D_width+u) = d;
+        }
       }
     }
   }

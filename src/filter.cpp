@@ -356,7 +356,7 @@ namespace filter {
       const int16_t* 	i4 = in+4;
       int16_t* result    = out + 2;
       const int16_t* const end_input = in + w*h;
-      for( ; i4 < end_input; i0 += 1, i1 += 8, i3 += 8, i4 += 8, result += 8 ) {
+      for( ; i4+8 < end_input; i0 += 1, i1 += 8, i3 += 8, i4 += 8, result += 8 ) {
         __m128i result_register;
         __m128i i0_register = *i0;
         __m128i i1_register = _mm_loadu_si128( (__m128i*)( i1 ) );
