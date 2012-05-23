@@ -258,6 +258,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdexcept>
 
 #include "triangle.h"
 
@@ -7647,6 +7648,7 @@ void transfernodes(struct mesh *m, struct behavior *b, float *pointlist,
   m->readnodefile = 0;
   if (m->invertices < 3) {
     printf("Error:  Input must have at least three input vertices.\n");
+    throw std::runtime_error("Libelas Error:  Input must have at least three input vertices.\n");
     triexit(1);
   }
   if (m->nextras == 0) {
