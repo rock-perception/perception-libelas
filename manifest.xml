@@ -12,4 +12,5 @@
     <license>GPL</license>
     <url>http://www.rainsoft.de/software/libelas.html</url>
     <tags>stable</tags>
+    <depend package="base/types" />
 </package>
